@@ -8,6 +8,7 @@ import { Button } from "@/app/components/ui/button";
 import { useSearchParams } from "react-router";
 import Papa from "papaparse";
 import eventiCsv from "../../data/eventi.csv?raw";
+import espositoriCsv from "../../data/espositori.csv?raw";
 
 export default function VisitorDashboard() {
   const [searchParams] = useSearchParams();
@@ -22,12 +23,16 @@ export default function VisitorDashboard() {
     }
   }, [searchParams]);
 
-  const exhibitors = [
-    { id: "1", name: "Dolce Italia", hall: "A", stand: "45", category: "Gelateria", distance: "120m" },
-    { id: "2", name: "Pasticceria Moderna", hall: "B", stand: "12", category: "Pasticceria", distance: "85m" },
-    { id: "3", name: "Caffè & Co", hall: "A", stand: "78", category: "Caffetteria", distance: "200m" },
-    { id: "4", name: "Chocolat Premium", hall: "C", stand: "23", category: "Cioccolateria", distance: "150m" },
-  ];
+  interface Exhibitor {
+    id: string;
+    name: string;
+    hall: string;
+    stand: string;
+    category: string;
+    distance: string;
+  }
+
+  const [exhibitors, setExhibitors] = useState<Exhibitor[]>([]);
 
   interface Event {
     id: string;
@@ -54,6 +59,22 @@ export default function VisitorDashboard() {
           booked: Math.floor(Math.random() * 80), // Placeholder
         }));
         setEvents(loadedEvents);
+      },
+    });
+
+    Papa.parse<any>(espositoriCsv, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const loadedExhibitors = results.data.slice(0, 50).map((row: any, index: number) => ({
+          id: index.toString(),
+          name: row["card-digitalprofile-name"] || "Nome non disponibile",
+          hall: row["line-clamp-2"] ? row["line-clamp-2"].split(" ")[0] : "N/A", // Extract approximate hall/stand info
+          stand: row["card-digitalprofile-position"] || "Posizione",
+          category: "Espositore", // Default category as it's not explicit in CSV
+          distance: `${Math.floor(Math.random() * 300) + 50}m` // Simulated distance
+        }));
+        setExhibitors(loadedExhibitors);
       },
     });
   }, []);
