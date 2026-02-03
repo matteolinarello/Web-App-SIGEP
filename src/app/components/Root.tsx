@@ -25,7 +25,7 @@ export default function Root() {
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
               <img
-                src="https://www.sigep.it/images/logo-sigep-2026.png"
+                src="https://www.gelatoworldcup.com/wp-content/uploads/2023/10/logo-sigep-world-positivo.png"
                 alt="SIGEP World"
                 className="h-10 w-auto"
               />

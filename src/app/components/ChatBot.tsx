@@ -118,7 +118,7 @@ export default function ChatBot({ onClose }: ChatBotProps) {
 
       setMessages((prev) => [...prev, newBotMessage]);
     } catch (error) {
-      console.error("Gemini Error:", error);
+      console.error('Errore Chatbot:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: "Mi dispiace, ho avuto un problema nel processare la tua richiesta. Riprova più tardi.",
