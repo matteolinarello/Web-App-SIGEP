@@ -5,10 +5,6 @@ import { Input } from "@/app/components/ui/input";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Import CSV as raw string using Vite's ?raw suffix
-import espositoriCsv from "../../data/espositori.csv?raw";
-import eventiCsv from "../../data/eventi.csv?raw";
-
 interface Message {
   id: string;
   text: string;
@@ -19,8 +15,6 @@ interface Message {
 interface ChatBotProps {
   onClose: () => void;
 }
-
-
 
 export default function ChatBot({ onClose }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([
@@ -36,14 +30,29 @@ export default function ChatBot({ onClose }: ChatBotProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [contextData, setContextData] = useState<{ exhibitors: string, events: string }>({ exhibitors: "", events: "" });
 
-  // Load CSV data on mount
+  // Load CSV data on mount from public path
   useEffect(() => {
-    // Process CSVs purely as text for the LLM context to save processing time
-    // But we still want to ensure they are loaded.
-    setContextData({
-      exhibitors: espositoriCsv,
-      events: eventiCsv
-    });
+    const loadData = async () => {
+      try {
+        const [exhibitorsRes, eventsRes] = await Promise.all([
+          fetch("/data/espositori.csv"),
+          fetch("/data/eventi.csv")
+        ]);
+
+        const [exhibitorsText, eventsText] = await Promise.all([
+          exhibitorsRes.text(),
+          eventsRes.text()
+        ]);
+
+        setContextData({
+          exhibitors: exhibitorsText,
+          events: eventsText
+        });
+      } catch (error) {
+        console.error("Error loading CSV data:", error);
+      }
+    };
+    loadData();
   }, []);
 
   // Auto-scroll to bottom when new messages arrive

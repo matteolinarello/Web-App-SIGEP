@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, QrCode, Calendar, Bot, Users, Navigation, Search, Star, Clock } from "lucide-react";
+import { MapPin, QrCode, Calendar, Bot, Users, Navigation, Search, Star, Clock, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Badge } from "@/app/components/ui/badge";
@@ -7,13 +7,12 @@ import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import { useSearchParams } from "react-router";
 import Papa from "papaparse";
-import eventiCsv from "../../data/eventi.csv?raw";
-import espositoriCsv from "../../data/espositori.csv?raw";
 
 export default function VisitorDashboard() {
   const [searchParams] = useSearchParams();
   const [selectedStand, setSelectedStand] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("map");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Check URL params for tab
   useEffect(() => {
@@ -46,40 +45,60 @@ export default function VisitorDashboard() {
   const [realEvents, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    Papa.parse<any>(eventiCsv, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const loadedEvents = results.data.slice(0, 5).map((row: any, index: number) => ({
-          id: index.toString(),
-          title: row["card-event-title"] || "Evento Senza Titolo",
-          time: row["times"] || "Orario da definire",
-          hall: row["label"] || "Luogo da definire", // Using 'label' for location as user mentioned card-event-title and times, likely 'label' is date/location
-          seats: 100, // Placeholder
-          booked: Math.floor(Math.random() * 80), // Placeholder
-        }));
-        setEvents(loadedEvents);
-      },
-    });
+    const loadData = async () => {
+      try {
+        const [eventsRes, exhibitorsRes] = await Promise.all([
+          fetch("/data/eventi.csv"),
+          fetch("/data/espositori.csv")
+        ]);
 
-    Papa.parse<any>(espositoriCsv, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const loadedExhibitors = results.data.slice(0, 50).map((row: any, index: number) => ({
-          id: index.toString(),
-          name: row["card-digitalprofile-name"] || "Nome non disponibile",
-          hall: row["line-clamp-2"] ? row["line-clamp-2"].split(" ")[0] : "N/A", // Extract approximate hall/stand info
-          stand: row["card-digitalprofile-position"] || "Posizione",
-          category: "Espositore", // Default category as it's not explicit in CSV
-          distance: `${Math.floor(Math.random() * 300) + 50}m` // Simulated distance
-        }));
-        setExhibitors(loadedExhibitors);
-      },
-    });
+        const [eventsText, exhibitorsText] = await Promise.all([
+          eventsRes.text(),
+          exhibitorsRes.text()
+        ]);
+
+        Papa.parse<any>(eventsText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const loadedEvents = results.data.slice(0, 10).map((row: any, index: number) => ({
+              id: index.toString(),
+              title: row["card-event-title"] || "Evento Senza Titolo",
+              time: row["times"] || "Orario da definire",
+              hall: row["label"] || "Luogo da definire",
+              seats: 100,
+              booked: Math.floor(Math.random() * 80),
+            }));
+            setEvents(loadedEvents);
+          },
+        });
+
+        Papa.parse<any>(exhibitorsText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            const loadedExhibitors = results.data.slice(0, 100).map((row: any, index: number) => ({
+              id: index.toString(),
+              name: row["card-digitalprofile-name"] || "Nome non disponibile",
+              hall: row["line-clamp-2"] || "N/A",
+              stand: row["card-digitalprofile-position"] || "Posizione",
+              category: "Espositore",
+              distance: `${Math.floor(Math.random() * 300) + 50}m`
+            }));
+            setExhibitors(loadedExhibitors);
+          },
+        });
+      } catch (error) {
+        console.error("Error loading CSV data:", error);
+      }
+    };
+    loadData();
   }, []);
 
-
+  const filteredExhibitors = exhibitors.filter(ex =>
+    ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ex.hall.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const savedContacts = [
     { id: "1", name: "Marco Rossi", company: "Dolce Italia", role: "Sales Manager", date: "Oggi, 09:30" },
@@ -99,7 +118,7 @@ export default function VisitorDashboard() {
           <TabsList className="grid w-full grid-cols-4 lg:w-auto">
             <TabsTrigger value="map" className="gap-2">
               <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Mappa</span>
+              <span className="hidden sm:inline">Espositori</span>
             </TabsTrigger>
             <TabsTrigger value="events" className="gap-2">
               <Calendar className="h-4 w-4" />
@@ -115,103 +134,46 @@ export default function VisitorDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Mappa & AR */}
+          {/* Espositori Grid */}
           <TabsContent value="map" className="space-y-6">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* Mappa Interattiva */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-primary" />
-                      Mappa Interattiva Indoor
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cerca espositore o padiglione..."
+                  className="pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredExhibitors.map((exhibitor) => (
+                <Card key={exhibitor.id} className="overflow-hidden hover:shadow-lg transition-shadow border-none shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-bold uppercase leading-tight h-12 line-clamp-2">
+                      {exhibitor.name}
                     </CardTitle>
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                      AR Disponibile
-                    </Badge>
-                  </div>
-                  <CardDescription>
-                    Tocca uno stand per la navigazione AR
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative bg-gradient-to-br from-secondary to-muted rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
-                    {/* Simulazione Mappa */}
-                    <div className="absolute inset-0 p-8">
-                      <div className="grid grid-cols-3 gap-4 h-full">
-                        {["Padiglione A", "Padiglione B", "Padiglione C"].map((hall, idx) => (
-                          <div key={hall} className="bg-white rounded-lg p-4 shadow-sm border">
-                            <div className="font-semibold text-sm mb-2 text-center">{hall}</div>
-                            <div className="space-y-2">
-                              {exhibitors.filter(e => e.hall === ["A", "B", "C"][idx]).map((exhibitor) => (
-                                <button
-                                  key={exhibitor.id}
-                                  onClick={() => setSelectedStand(exhibitor.id)}
-                                  className={`w-full p-2 rounded text-xs text-left transition-all ${selectedStand === exhibitor.id
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary hover:bg-muted"
-                                    }`}
-                                >
-                                  <div className="font-medium">{exhibitor.stand}</div>
-                                  <div className="truncate opacity-80">{exhibitor.name}</div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold text-muted-foreground tracking-wider uppercase">POSIZIONE</span>
+                        <span className="text-sm font-semibold">{exhibitor.hall}</span>
                       </div>
                     </div>
-
-                    {/* AR Overlay */}
-                    {selectedStand && (
-                      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                        <div className="bg-white p-6 rounded-xl max-w-sm mx-4 shadow-2xl">
-                          <h3 className="text-lg font-bold mb-2">Navigazione AR Attiva</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Segui le frecce AR sul tuo dispositivo per raggiungere lo stand selezionato
-                          </p>
-                          <Button onClick={() => setSelectedStand(null)} className="w-full">
-                            Chiudi
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Lista Espositori */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Espositori Vicini</CardTitle>
-                  <CardDescription>Basato sulla tua posizione</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="Cerca espositore..." className="pl-9" />
+                    <div className="bg-secondary/30 px-6 py-3 flex items-center justify-between">
+                      <Button variant="link" className="p-0 text-primary font-bold flex items-center gap-2 no-underline hover:no-underline">
+                        SCOPRI <ArrowRight className="h-4 w-4" />
+                      </Button>
+                      <Badge variant="outline" className="text-[10px] bg-white/50 border-none shadow-sm">
+                        {exhibitor.distance}
+                      </Badge>
                     </div>
-                    {exhibitors.map((exhibitor) => (
-                      <div
-                        key={exhibitor.id}
-                        className="p-3 rounded-lg border bg-card hover:shadow-md transition-all cursor-pointer"
-                        onClick={() => setSelectedStand(exhibitor.id)}
-                      >
-                        <div className="flex items-start justify-between mb-1">
-                          <h4 className="font-semibold text-sm">{exhibitor.name}</h4>
-                          <Badge variant="outline" className="text-xs">{exhibitor.distance}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">{exhibitor.category}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          <span>Hall {exhibitor.hall} - Stand {exhibitor.stand}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </TabsContent>
 
@@ -327,41 +289,8 @@ export default function VisitorDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Chat simulato */}
-                  <div className="h-96 bg-secondary/30 rounded-lg p-4 overflow-y-auto space-y-4">
-                    <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="bg-white rounded-lg p-3 shadow-sm">
-                        <p className="text-sm">
-                          Ciao! Sono l'assistente virtuale di SIGEP World. Come posso aiutarti oggi?
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 justify-end">
-                      <div className="bg-primary text-primary-foreground rounded-lg p-3 shadow-sm max-w-sm">
-                        <p className="text-sm">Dove posso trovare stand di gelateria?</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="bg-white rounded-lg p-3 shadow-sm">
-                        <p className="text-sm mb-2">
-                          Ho trovato 12 stand di gelateria. I più vicini a te sono:
-                        </p>
-                        <ul className="text-sm space-y-1">
-                          <li>• Dolce Italia - Hall A, Stand 45 (120m)</li>
-                          <li>• Gelato Artigiano - Hall A, Stand 52 (180m)</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input placeholder="Scrivi il tuo messaggio..." />
-                    <Button>Invia</Button>
+                  <div className="h-96 bg-secondary/30 rounded-lg p-4 flex items-center justify-center italic text-muted-foreground text-sm border-2 border-dashed">
+                    Usa il chatbot in basso a destra per interagire con l'AI
                   </div>
                 </div>
               </CardContent>

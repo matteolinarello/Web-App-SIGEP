@@ -24,8 +24,11 @@ export default function Root() {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
-              {/* <img src={logo} alt="SIGEP World" className="h-12 w-auto" /> */}
-              <span className="text-2xl font-bold text-primary">SIGEP World</span>
+              <img
+                src="https://www.sigep.it/images/logo-sigep-2026.png"
+                alt="SIGEP World"
+                className="h-10 w-auto"
+              />
             </Link>
 
             {/* Desktop Navigation */}
